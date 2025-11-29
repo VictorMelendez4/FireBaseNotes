@@ -76,10 +76,31 @@ class LoginViewModel: ViewModel() {
                     Log.d("ERROR AL GUARDAR", "ERROR al guardar en firestore")
                 }
         }
-
-
     }
 
+    // Función para recuperar contraseña
+    fun resetPassword(email: String, onSuccess: () -> Unit) {
+        if (email.isBlank()) {
+            // Opcional: Podrías manejar un error específico aquí si el email está vacío
+            return
+        }
+        viewModelScope.launch {
+            try {
+                auth.sendPasswordResetEmail(email)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            onSuccess()
+                        } else {
+                            Log.d("ERROR EN FIREBASE", "Error al enviar correo de recuperación")
+                            showAlert = true
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.d("ERROR EN JETPACK", "ERROR: ${e.localizedMessage}")
+                showAlert = true
+            }
+        }
+    }
 
     fun closeAlert(){
         showAlert = false
