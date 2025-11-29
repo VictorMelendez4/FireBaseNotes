@@ -16,13 +16,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.lang.Exception
+import kotlinx.coroutines.tasks.await // <--- IMPORTANTE: ESTA LIBRERÍA ES LA MAGIA
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
-class NotesViewModel:ViewModel() {
+class NotesViewModel : ViewModel() {
 
     private val auth: FirebaseAuth = Firebase.auth
     private val firestore = Firebase.firestore
@@ -33,24 +34,30 @@ class NotesViewModel:ViewModel() {
     var state by mutableStateOf(NotesState())
         private set
 
-    fun onValue(value:String, text: String){
-        when(text){
+    var isLoading by mutableStateOf(false)
+        private set
+
+    fun onValue(value: String, text: String) {
+        when (text) {
             "title" -> state = state.copy(title = value)
             "note" -> state = state.copy(note = value)
         }
     }
 
-    fun fetchNotes(){
+    fun resetState() {
+        state = state.copy(title = "", note = "")
+        isLoading = false
+    }
+
+    fun fetchNotes() {
         val email = auth.currentUser?.email
         firestore.collection("Notes")
             .whereEqualTo("emailUser", email.toString())
-            .addSnapshotListener {querySnapshot, error ->
-                if (error != null){
-                    return@addSnapshotListener
-                }
+            .addSnapshotListener { querySnapshot, error ->
+                if (error != null) return@addSnapshotListener
                 val documents = mutableListOf<NotesState>()
-                if (querySnapshot != null){
-                    for (document in querySnapshot){
+                if (querySnapshot != null) {
+                    for (document in querySnapshot) {
                         val myDocument = document.toObject(NotesState::class.java).copy(idDoc = document.id)
                         documents.add(myDocument)
                     }
@@ -59,8 +66,11 @@ class NotesViewModel:ViewModel() {
             }
     }
 
-    fun saveNewNote(title: String, note:String, onSuccess:() -> Unit){
+    // --- GUARDAR CON AWAIT (FORMA ROBUSTA) ---
+    fun saveNewNote(title: String, note: String, onSuccess: () -> Unit) {
         val email = auth.currentUser?.email
+        isLoading = true
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val newNote = hashMapOf(
@@ -69,70 +79,108 @@ class NotesViewModel:ViewModel() {
                     "date" to formatDate(),
                     "emailUser" to email.toString()
                 )
-                firestore.collection("Notes").add(newNote)
-                    .addOnSuccessListener {
-                        onSuccess()
-                    }
-            }catch (e:Exception){
-                Log.d("ERROR SAVE","Erro al guardar ${e.localizedMessage} ")
+                // .await() obliga a esperar aquí hasta que termine
+                firestore.collection("Notes").add(newNote).await()
+
+                // Si llegamos a esta línea, es que guardó con éxito
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                // Si algo falla, caemos aquí inmediatamente
+                Log.d("ERROR SAVE", "Error: ${e.localizedMessage}")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                }
             }
         }
     }
 
-    private fun formatDate(): String {
-        val currentDate : Date = Calendar.getInstance().time
-        val res = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        return res.format(currentDate)
-    }
-
-    fun getNoteById(documentId: String){
-        firestore.collection("Notes")
-            .document(documentId)
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null){
+    // --- OBTENER POR ID ---
+    fun getNoteById(documentId: String) {
+        isLoading = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // .await() espera la respuesta
+                val snapshot = firestore.collection("Notes").document(documentId).get().await()
+                if (snapshot != null) {
                     val note = snapshot.toObject(NotesState::class.java)
-                    state = state.copy(
-                        title = note?.title ?: "",
-                        note = note?.note ?: ""
-                    )
+                    withContext(Dispatchers.Main) {
+                        state = state.copy(
+                            title = note?.title ?: "",
+                            note = note?.note ?: ""
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d("ERROR GET", "Error: ${e.localizedMessage}")
+            } finally {
+                // Pase lo que pase, apagamos la carga
+                withContext(Dispatchers.Main) {
+                    isLoading = false
                 }
             }
+        }
     }
 
-    fun updateNote(idDoc: String, onSuccess:() -> Unit){
+    // --- ACTUALIZAR CON AWAIT ---
+    fun updateNote(idDoc: String, onSuccess: () -> Unit) {
+        isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val editNote = hashMapOf(
                     "title" to state.title,
                     "note" to state.note,
                 )
-                firestore.collection("Notes").document(idDoc)
-                    .update(editNote as Map<String, Any>)
-                    .addOnSuccessListener {
-                        onSuccess()
-                    }
-            }catch (e:Exception){
-                Log.d("ERROR EDIT","Error al editar ${e.localizedMessage} ")
+                // .await() espera a que termine la actualización
+                firestore.collection("Notes").document(idDoc).update(editNote as Map<String, Any>).await()
+
+                // Éxito
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                // Error
+                Log.d("ERROR EDIT", "Error: ${e.localizedMessage}")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                }
             }
         }
     }
 
-    fun deleteNote(idDoc: String, onSuccess:() -> Unit){
+    // --- ELIMINAR CON AWAIT ---
+    fun deleteNote(idDoc: String, onSuccess: () -> Unit) {
+        isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                firestore.collection("Notes").document(idDoc)
-                    .delete()
-                    .addOnSuccessListener {
-                        onSuccess()
-                    }
-            }catch (e:Exception){
-                Log.d("ERROR DELETE","Error al eliminar ${e.localizedMessage} ")
+                // .await() espera a que termine el borrado
+                firestore.collection("Notes").document(idDoc).delete().await()
+
+                // Éxito
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    onSuccess()
+                }
+            } catch (e: Exception) {
+                // Error
+                Log.d("ERROR DELETE", "Error: ${e.localizedMessage}")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                }
             }
         }
     }
 
-    fun signOut(){
-        auth.signOut()
+    private fun formatDate(): String {
+        val currentDate: Date = Calendar.getInstance().time
+        val res = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        return res.format(currentDate)
     }
 
+    fun signOut() {
+        auth.signOut()
+    }
 }
