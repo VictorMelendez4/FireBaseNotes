@@ -106,4 +106,8 @@ class LoginViewModel: ViewModel() {
         showAlert = false
     }
 
+    fun getCurrentUser(): com.google.firebase.auth.FirebaseUser? {
+        return auth.currentUser
+    }
+
 }

@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import com.example.firebasenotes.viewModels.LoginViewModel
 import com.example.firebasenotes.viewModels.NotesViewModel
 import com.example.firebasenotes.views.login.BlankView
+import com.example.firebasenotes.views.login.SplashView
 import com.example.firebasenotes.views.notes.HomeView
 import com.example.firebasenotes.views.login.TabsView
 import com.example.firebasenotes.views.notes.AddNoteView
@@ -17,7 +18,12 @@ import com.example.firebasenotes.views.notes.EditNoteView
 @Composable
 fun NavManager(loginVM: LoginViewModel, notesVM: NotesViewModel){
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "Blank" ){
+    NavHost(navController = navController, startDestination = "Splash" ){
+
+        composable("Splash"){
+            SplashView(navController, loginVM)
+        }
+
         composable("Blank"){
             BlankView(navController)
         }

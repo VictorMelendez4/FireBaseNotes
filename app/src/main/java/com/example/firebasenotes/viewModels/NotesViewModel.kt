@@ -175,12 +175,32 @@ class NotesViewModel : ViewModel() {
     }
 
     private fun formatDate(): String {
-        val currentDate: Date = Calendar.getInstance().time
-        val res = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        return res.format(currentDate)
+        val currentDate = Calendar.getInstance()
+        val date = currentDate.time
+        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        return "${dateFormat.format(date)} • ${timeFormat.format(date)}"
     }
 
     fun signOut() {
         auth.signOut()
     }
+
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+
+    fun onSearchChange(query: String) {
+        searchQuery = query
+    }
+
+
+    fun getFilteredNotes(): List<NotesState> {
+        val query = searchQuery.lowercase()
+        return _notesData.value.filter {
+            it.title.lowercase().contains(query) || it.note.lowercase().contains(query)
+        }
+    }
+
 }
