@@ -5,5 +5,6 @@ data class NotesState(
     val title: String = "",
     val note: String = "",
     val date: String = "",
-    val idDoc: String = ""
+    val idDoc: String = "",
+    val colorIndex: Int = 0
 )

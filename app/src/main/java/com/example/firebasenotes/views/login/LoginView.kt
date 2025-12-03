@@ -129,17 +129,21 @@ fun LoginView(navController: NavController, loginVM: LoginViewModel) {
             }
         }
 
-        // --- DIALOG DE RECUPERACIÓN (NUEVO) ---
         if (showResetDialog) {
             ForgotPasswordDialog(
                 onDismiss = { showResetDialog = false },
                 onSend = { emailRecuperacion ->
-                    loginVM.resetPassword(emailRecuperacion) {
-                        Toast.makeText(context, "Correo enviado. Revisa SPAM si no llega.", Toast.LENGTH_LONG).show()
-                        showResetDialog = false
-                    }
+                    loginVM.resetPassword(
+                        email = emailRecuperacion,
+                        onSuccess = {
+                            Toast.makeText(context, "Correo enviado. Revisa tu bandeja.", Toast.LENGTH_LONG).show()
+                            showResetDialog = false
+                        },
+                        onError = { mensajeError ->
+                            Toast.makeText(context, mensajeError, Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 },
-                // UX PRO: Si el usuario ya escribió su correo en el login, se lo ponemos automático
                 initialEmail = email
             )
         }

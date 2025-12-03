@@ -9,7 +9,6 @@ import androidx.navigation.navArgument
 import com.example.firebasenotes.viewModels.LoginViewModel
 import com.example.firebasenotes.viewModels.NotesViewModel
 import com.example.firebasenotes.views.login.BlankView
-import com.example.firebasenotes.views.login.SplashView
 import com.example.firebasenotes.views.notes.HomeView
 import com.example.firebasenotes.views.login.TabsView
 import com.example.firebasenotes.views.notes.AddNoteView
@@ -18,15 +17,16 @@ import com.example.firebasenotes.views.notes.EditNoteView
 @Composable
 fun NavManager(loginVM: LoginViewModel, notesVM: NotesViewModel){
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "Splash" ){
 
-        composable("Splash"){
-            SplashView(navController, loginVM)
-        }
+    // PREGUNTAMOS: ¿Hay usuario?
+    // Si hay usuario -> Vamos a Home
+    // Si no hay -> Vamos a Login
+    val startDestination = if (loginVM.getCurrentUser() != null) "Home" else "Login"
 
-        composable("Blank"){
-            BlankView(navController)
-        }
+    NavHost(navController = navController, startDestination = startDestination){
+
+
+
         composable("Login"){
             TabsView(navController, loginVM)
         }
@@ -41,6 +41,11 @@ fun NavManager(loginVM: LoginViewModel, notesVM: NotesViewModel){
         )){
             val idDoc = it.arguments?.getString("idDoc") ?: ""
             EditNoteView(navController, notesVM, idDoc)
+        }
+
+        // Mantenemos BlankView por si acaso, aunque no se use
+        composable("Blank"){
+            BlankView(navController)
         }
     }
 }

@@ -78,28 +78,26 @@ class LoginViewModel: ViewModel() {
         }
     }
 
-    // Función para recuperar contraseña
-    fun resetPassword(email: String, onSuccess: () -> Unit) {
+    fun resetPassword(email: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         if (email.isBlank()) {
-            // Opcional: Podrías manejar un error específico aquí si el email está vacío
+            onError("Por favor escribe un correo.")
             return
         }
-        viewModelScope.launch {
-            try {
-                auth.sendPasswordResetEmail(email)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            onSuccess()
-                        } else {
-                            Log.d("ERROR EN FIREBASE", "Error al enviar correo de recuperación")
-                            showAlert = true
-                        }
+
+        auth.sendPasswordResetEmail(email)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onSuccess()
+                } else {
+                    try {
+                        throw task.exception!!
+                    } catch (e: com.google.firebase.auth.FirebaseAuthInvalidUserException) {
+                        onError("Este correo no está registrado.")
+                    } catch (e: Exception) {
+                        onError("Error al enviar: ${e.localizedMessage}")
                     }
-            } catch (e: Exception) {
-                Log.d("ERROR EN JETPACK", "ERROR: ${e.localizedMessage}")
-                showAlert = true
+                }
             }
-        }
     }
 
     fun closeAlert(){

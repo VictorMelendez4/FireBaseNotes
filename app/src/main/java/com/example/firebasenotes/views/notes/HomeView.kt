@@ -61,13 +61,13 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = "Mis Notas", fontWeight = FontWeight.Bold) },
+                title = { Text(text = "Mis Notas", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B)) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent // Fondo transparente
                 ),
                 actions = {
                     IconButton(onClick = { showExitDialog = true }) {
-                        Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Salir")
+                        Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Salir", tint = Color(0xFF1E293B))
                     }
                 }
             )
@@ -80,7 +80,9 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Agregar Nota")
             }
-        }
+        },
+        // Fondo Gris Claro (Limpio)
+        containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
         Column(
             modifier = Modifier
@@ -90,28 +92,31 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
+            // BUSCADOR BLANCO
             OutlinedTextField(
                 value = notesVM.searchQuery,
                 onValueChange = { notesVM.onSearchChange(it) },
-                label = { Text("Buscar nota...") },
+                label = { Text("Buscar nota...", color = Color.Gray) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 shape = RoundedCornerShape(30.dp),
                 leadingIcon = {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = "")
+                    Icon(imageVector = Icons.Default.Search, contentDescription = "", tint = Color.Gray)
                 },
                 trailingIcon = {
                     if (notesVM.searchQuery.isNotEmpty()) {
                         IconButton(onClick = { notesVM.onSearchChange("") }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "")
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "", tint = Color.Gray)
                         }
                     }
                 },
                 colors = TextFieldDefaults.textFieldColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    containerColor = Color.White, // Fondo Blanco
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    textColor = Color.Black,
+                    cursorColor = MaterialTheme.colorScheme.primary
                 )
             )
 
@@ -124,8 +129,8 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
                 LazyVerticalStaggeredGrid(
                     columns = StaggeredGridCells.Fixed(2),
                     contentPadding = PaddingValues(bottom = 80.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredNotes) { item ->
@@ -133,6 +138,7 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
                             title = item.title,
                             note = item.note,
                             date = item.date,
+                            colorIndex = item.colorIndex,
                             onClick = {
                                 navController.navigate("EditNoteView/${item.idDoc}")
                             }
@@ -181,20 +187,13 @@ fun EmptyState(isSearching: Boolean) {
             modifier = Modifier
                 .padding(bottom = 16.dp)
                 .fillMaxSize(0.2f),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            tint = Color(0xFFCBD5E1)
         )
         Text(
             text = if (isSearching) "No se encontraron notas" else "No tienes notas aún",
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color(0xFF94A3B8),
             fontSize = 18.sp
         )
-        if (!isSearching){
-            Text(
-                text = "Crea una nueva para empezar",
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                fontSize = 14.sp
-            )
-        }
     }
 }

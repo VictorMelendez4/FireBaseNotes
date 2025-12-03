@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.firebasenotes.model.NotesState
@@ -16,7 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await // <--- IMPORTANTE: ESTA LIBRERÍA ES LA MAGIA
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -34,8 +35,25 @@ class NotesViewModel : ViewModel() {
     var state by mutableStateOf(NotesState())
         private set
 
+    // CORRECCIÓN AQUÍ: Usamos mutableStateOf(0) en lugar de mutableIntStateOf
+    // Esto arregla el error rojo y el de "Cannot infer type"
+    var selectedColorIndex by mutableStateOf(0)
+
     var isLoading by mutableStateOf(false)
         private set
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+    // PALETA DE COLORES PASTEL
+    val colorPalette = listOf(
+        Color(0xFFFFFFFF), // Blanco
+        Color(0xFFFDE68A), // Amarillo
+        Color(0xFFBFDBFE), // Azul
+        Color(0xFFBBF7D0), // Verde
+        Color(0xFFFBCFE8), // Rosa
+        Color(0xFFDDD6FE)  // Morado
+    )
 
     fun onValue(value: String, text: String) {
         when (text) {
@@ -44,8 +62,24 @@ class NotesViewModel : ViewModel() {
         }
     }
 
+    fun onColorChange(index: Int) {
+        selectedColorIndex = index
+    }
+
+    fun onSearchChange(query: String) {
+        searchQuery = query
+    }
+
+    fun getFilteredNotes(): List<NotesState> {
+        val query = searchQuery.lowercase()
+        return _notesData.value.filter {
+            it.title.lowercase().contains(query) || it.note.lowercase().contains(query)
+        }
+    }
+
     fun resetState() {
         state = state.copy(title = "", note = "")
+        selectedColorIndex = 0
         isLoading = false
     }
 
@@ -66,7 +100,6 @@ class NotesViewModel : ViewModel() {
             }
     }
 
-    // --- GUARDAR CON AWAIT (FORMA ROBUSTA) ---
     fun saveNewNote(title: String, note: String, onSuccess: () -> Unit) {
         val email = auth.currentUser?.email
         isLoading = true
@@ -77,32 +110,26 @@ class NotesViewModel : ViewModel() {
                     "title" to title,
                     "note" to note,
                     "date" to formatDate(),
-                    "emailUser" to email.toString()
+                    "emailUser" to email.toString(),
+                    "colorIndex" to selectedColorIndex
                 )
-                // .await() obliga a esperar aquí hasta que termine
                 firestore.collection("Notes").add(newNote).await()
 
-                // Si llegamos a esta línea, es que guardó con éxito
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     onSuccess()
                 }
             } catch (e: Exception) {
-                // Si algo falla, caemos aquí inmediatamente
                 Log.d("ERROR SAVE", "Error: ${e.localizedMessage}")
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
+                withContext(Dispatchers.Main) { isLoading = false }
             }
         }
     }
 
-    // --- OBTENER POR ID ---
     fun getNoteById(documentId: String) {
         isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // .await() espera la respuesta
                 val snapshot = firestore.collection("Notes").document(documentId).get().await()
                 if (snapshot != null) {
                     val note = snapshot.toObject(NotesState::class.java)
@@ -111,20 +138,17 @@ class NotesViewModel : ViewModel() {
                             title = note?.title ?: "",
                             note = note?.note ?: ""
                         )
+                        selectedColorIndex = note?.colorIndex ?: 0
                     }
                 }
             } catch (e: Exception) {
-                Log.d("ERROR GET", "Error: ${e.localizedMessage}")
+                Log.d("ERROR GET", "Error")
             } finally {
-                // Pase lo que pase, apagamos la carga
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
+                withContext(Dispatchers.Main) { isLoading = false }
             }
         }
     }
 
-    // --- ACTUALIZAR CON AWAIT ---
     fun updateNote(idDoc: String, onSuccess: () -> Unit) {
         isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
@@ -132,75 +156,44 @@ class NotesViewModel : ViewModel() {
                 val editNote = hashMapOf(
                     "title" to state.title,
                     "note" to state.note,
+                    "colorIndex" to selectedColorIndex
                 )
-                // .await() espera a que termine la actualización
                 firestore.collection("Notes").document(idDoc).update(editNote as Map<String, Any>).await()
 
-                // Éxito
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     onSuccess()
                 }
             } catch (e: Exception) {
-                // Error
-                Log.d("ERROR EDIT", "Error: ${e.localizedMessage}")
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
+                withContext(Dispatchers.Main) { isLoading = false }
             }
         }
     }
 
-    // --- ELIMINAR CON AWAIT ---
     fun deleteNote(idDoc: String, onSuccess: () -> Unit) {
         isLoading = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // .await() espera a que termine el borrado
                 firestore.collection("Notes").document(idDoc).delete().await()
-
-                // Éxito
                 withContext(Dispatchers.Main) {
                     isLoading = false
                     onSuccess()
                 }
             } catch (e: Exception) {
-                // Error
-                Log.d("ERROR DELETE", "Error: ${e.localizedMessage}")
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
+                withContext(Dispatchers.Main) { isLoading = false }
             }
         }
     }
 
     private fun formatDate(): String {
-        val currentDate = Calendar.getInstance()
-        val date = currentDate.time
-        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        return "${dateFormat.format(date)} • ${timeFormat.format(date)}"
+        val currentDate: Date = Calendar.getInstance().time
+        val res = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        return res.format(currentDate)
     }
 
-    fun signOut() {
-        auth.signOut()
+    fun signOut() { auth.signOut() }
+
+    fun getColor(index: Int): Color {
+        return if (index in colorPalette.indices) colorPalette[index] else colorPalette[0]
     }
-
-
-    var searchQuery by mutableStateOf("")
-        private set
-
-
-    fun onSearchChange(query: String) {
-        searchQuery = query
-    }
-
-
-    fun getFilteredNotes(): List<NotesState> {
-        val query = searchQuery.lowercase()
-        return _notesData.value.filter {
-            it.title.lowercase().contains(query) || it.note.lowercase().contains(query)
-        }
-    }
-
 }
