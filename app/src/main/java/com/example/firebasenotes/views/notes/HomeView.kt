@@ -1,7 +1,9 @@
 package com.example.firebasenotes.views.notes
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,10 +18,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -41,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,15 +62,24 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
     }
 
     var showExitDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(text = "Mis Notas", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B)) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent // Fondo transparente
+                    containerColor = Color.Transparent
                 ),
                 actions = {
+                    // BOTÓN RECARGAR
+                    IconButton(onClick = {
+                        notesVM.fetchNotes()
+                        Toast.makeText(context, "Sincronizando...", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Recargar", tint = Color(0xFF1E293B))
+                    }
+
                     IconButton(onClick = { showExitDialog = true }) {
                         Icon(imageVector = Icons.Default.ExitToApp, contentDescription = "Salir", tint = Color(0xFF1E293B))
                     }
@@ -81,7 +95,6 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Agregar Nota")
             }
         },
-        // Fondo Gris Claro (Limpio)
         containerColor = MaterialTheme.colorScheme.background
     ) { pad ->
         Column(
@@ -92,7 +105,6 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // BUSCADOR BLANCO
             OutlinedTextField(
                 value = notesVM.searchQuery,
                 onValueChange = { notesVM.onSearchChange(it) },
@@ -112,7 +124,7 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
                     }
                 },
                 colors = TextFieldDefaults.textFieldColors(
-                    containerColor = Color.White, // Fondo Blanco
+                    containerColor = Color.White,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                     textColor = Color.Black,
@@ -120,29 +132,38 @@ fun HomeView(navController: NavController, notesVM: NotesViewModel) {
                 )
             )
 
-            val datos by notesVM.notesData.collectAsState()
-            val filteredNotes = notesVM.getFilteredNotes()
-
-            if (filteredNotes.isEmpty()) {
-                EmptyState(isSearching = notesVM.searchQuery.isNotEmpty())
+            // LOGICA DE CARGA VISUAL
+            if (notesVM.isLoading) {
+                // si esta cargando, mostramos el círculo en el centro
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
             } else {
-                LazyVerticalStaggeredGrid(
-                    columns = StaggeredGridCells.Fixed(2),
-                    contentPadding = PaddingValues(bottom = 80.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredNotes) { item ->
-                        CardNote(
-                            title = item.title,
-                            note = item.note,
-                            date = item.date,
-                            colorIndex = item.colorIndex,
-                            onClick = {
-                                navController.navigate("EditNoteView/${item.idDoc}")
-                            }
-                        )
+                // si no esta cargando, mostramos la lista o el vacío
+                val datos by notesVM.notesData.collectAsState()
+                val filteredNotes = notesVM.getFilteredNotes()
+
+                if (filteredNotes.isEmpty()) {
+                    EmptyState(isSearching = notesVM.searchQuery.isNotEmpty())
+                } else {
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Fixed(2),
+                        contentPadding = PaddingValues(bottom = 80.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredNotes) { item ->
+                            CardNote(
+                                title = item.title,
+                                note = item.note,
+                                date = item.date,
+                                colorIndex = item.colorIndex,
+                                onClick = {
+                                    navController.navigate("EditNoteView/${item.idDoc}")
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -182,7 +203,7 @@ fun EmptyState(isSearching: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = if (isSearching) Icons.Default.Search else Icons.Default.Face,
+            imageVector = if (isSearching) Icons.Default.Search else Icons.Default.Refresh,
             contentDescription = "",
             modifier = Modifier
                 .padding(bottom = 16.dp)
@@ -190,10 +211,17 @@ fun EmptyState(isSearching: Boolean) {
             tint = Color(0xFFCBD5E1)
         )
         Text(
-            text = if (isSearching) "No se encontraron notas" else "No tienes notas aún",
+            text = if (isSearching) "No se encontraron notas" else "Cargando notas...",
             fontWeight = FontWeight.Bold,
             color = Color(0xFF94A3B8),
             fontSize = 18.sp
         )
+        if (!isSearching){
+            Text(
+                text = "Si no aparecen, pulsa el botón de arriba 🔄",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                fontSize = 14.sp
+            )
+        }
     }
 }

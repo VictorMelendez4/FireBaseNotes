@@ -85,10 +85,17 @@ class NotesViewModel : ViewModel() {
 
     fun fetchNotes() {
         val email = auth.currentUser?.email
+
+        isLoading = true
+
         firestore.collection("Notes")
             .whereEqualTo("emailUser", email.toString())
             .addSnapshotListener { querySnapshot, error ->
-                if (error != null) return@addSnapshotListener
+                if (error != null) {
+                    isLoading = false
+                    return@addSnapshotListener
+                }
+
                 val documents = mutableListOf<NotesState>()
                 if (querySnapshot != null) {
                     for (document in querySnapshot) {
@@ -96,10 +103,11 @@ class NotesViewModel : ViewModel() {
                         documents.add(myDocument)
                     }
                 }
+
                 _notesData.value = documents
+                isLoading = false
             }
     }
-
     fun saveNewNote(title: String, note: String, onSuccess: () -> Unit) {
         val email = auth.currentUser?.email
         isLoading = true

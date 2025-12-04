@@ -21,51 +21,56 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firebasenotes.viewModels.NotesViewModel
 
 @Composable
 fun CardNote(
     title: String,
     note: String,
     date: String,
-    colorIndex: Int, // Recibimos el índice del color
+    colorIndex: Int,
     onClick: () -> Unit
 ) {
-    // Obtenemos el color real de la paleta (puedes instanciar VM temporalmente o pasar el color directo)
-    // Para simplificar, hardcodeamos la paleta aquí igual que en el VM para visualización rápida
     val colorPalette = listOf(
-        Color(0xFFFFFFFF), Color(0xFFFDE68A), Color(0xFFBFDBFE),
-        Color(0xFFBBF7D0), Color(0xFFFBCFE8), Color(0xFFDDD6FE)
+        Color(0xFFFFFFFF),
+        Color(0xFFFEF3C7),
+        Color(0xFFE0F2FE),
+        Color(0xFFDCFCE7),
+        Color(0xFFFAE8FF),
+        Color(0xFFEDE9FE)
     )
+
+    // Si el color es 0 es Blanco.
     val cardColor = if (colorIndex in colorPalette.indices) colorPalette[colorIndex] else Color.White
 
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 10.dp)
+            .padding(bottom = 12.dp)
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(2.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (colorIndex == 0) 2.dp else 0.dp
+        ),
         colors = CardDefaults.cardColors(
-            containerColor = cardColor // Usamos el color dinámico
+            containerColor = cardColor
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 fontSize = 17.sp,
-                color = Color(0xFF1E293B) // Texto oscuro siempre legible en pasteles
+                color = Color(0xFF1F2937)
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = date,
                 fontSize = 11.sp,
-                color = Color(0xFF64748B)
+                color = Color(0xFF9CA3AF)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -75,7 +80,7 @@ fun CardNote(
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
-                color = Color(0xFF334155)
+                color = Color(0xFF4B5563)
             )
         }
     }
